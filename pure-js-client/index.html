@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GraphQL Client PoC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Optional: Add some basic font or body styles */
+        body {
+            font-family: sans-serif;
+            line-height: 1.6;
+        }
+        /* Style for the <pre> tag inside results div */
+        #results pre {
+            white-space: pre-wrap; /* Wrap long lines */
+            word-wrap: break-word; /* Break words to prevent overflow */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-md">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">GraphQL Client PoC</h1>
+        <p class="mb-6 text-gray-600">Click a button below to fetch data from the .NET GraphQL Gateway (which gets it from the Node.js REST backend).</p>
+
+        <div class="flex flex-wrap gap-4 mb-6"> <button id="fetchUsersBtn" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring focus:border-blue-300">
+                Fetch All Users
+            </button>
+            <button id="fetchProductsBtn" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring focus:border-green-300">
+                Fetch All Products
+            </button>
+             </div>
+
+        <h2 class="text-xl font-semibold mb-3 text-gray-800">Results:</h2>
+        <div id="results" class="bg-gray-800 text-gray-100 p-4 rounded-md overflow-x-auto">
+            <pre><code class="language-json">Click a button to see data...</code></pre>
+        </div>
+    </div>
+
+    <script>
+        // --- JavaScript Code using Native Fetch ---
+
+        // Get references to our UI elements
+        const fetchUsersBtn = document.getElementById('fetchUsersBtn');
+        const fetchProductsBtn = document.getElementById('fetchProductsBtn');
+        const resultsDivCode = document.getElementById('results').querySelector('code'); // Target the <code> tag
+
+        // Define the URL of our .NET GraphQL Gateway
+        // !!! IMPORTANT: Replace 5254 with the actual port your .NET app is running on !!!
+        const gatewayUrl = 'http://localhost:5254/graphql';
+
+        // Define our predefined GraphQL queries
+        const queries = {
+            fetchAllUsers: `
+                query {
+                  users {
+                    id
+                    name
+                  }
+                }
+            `,
+            fetchAllProducts: `
+                query {
+                  products {
+                    id
+                    name
+                  }
+                }
+            `
+            // Add queries with variables later if needed, e.g.:
+            // fetchUserById: `
+            //    query GetUser($userId: ID!) {
+            //      userById(id: $userId) {
+            //        id
+            //        name
+            //      }
+            //    }
+            // `
+        };
+
+        // Function to fetch data using native 'fetch' and display results
+        async function fetchData(query) {
+            resultsDivCode.textContent = 'Loading...'; // Show loading indicator
+
+            try {
+                // Use fetch to send the GraphQL POST request
+                const response = await fetch(gatewayUrl, {
+                    method: 'POST', // GraphQL queries are typically sent via POST
+                    headers: {
+                        'Content-Type': 'application/json', // Indicate that we are sending JSON
+                        'Accept': 'application/json',       // Indicate that we expect JSON back
+                    },
+                    // The body contains the GraphQL query string, typically in a 'query' field
+                    // Variables would go in a 'variables' field if the query had them
+                    body: JSON.stringify({
+                        query: query,
+                        // variables: {} // Include variables here if your query had any
+                    }),
+                });
+
+                // Check if the HTTP response itself was OK (e.g., 200 status)
+                if (!response.ok) {
+                    const errorBody = await response.text(); // Read response body for more info
+                    throw new Error(`HTTP error! Status: ${response.status}, Body: ${errorBody}`);
+                }
+
+                // Parse the JSON response body
+                const data = await response.json();
+
+                // Display the entire JSON response (including data and errors fields)
+                // Use JSON.stringify for pretty printing
+                resultsDivCode.textContent = JSON.stringify(data, null, 2);
+
+                // Optional: Log GraphQL errors within the response body to the console
+                if (data.errors) {
+                     console.error('GraphQL errors:', data.errors);
+                }
+
+
+            } catch (error) {
+                // Handle network errors or the HTTP error thrown above
+                console.error('Error fetching data:', error);
+                 resultsDivCode.textContent = 'Error: ' + (error.message || JSON.stringify(error, null, 2));
+            }
+        }
+
+        // Add event listeners to the buttons
+        fetchUsersBtn.addEventListener('click', () => {
+            fetchData(queries.fetchAllUsers);
+        });
+
+        fetchProductsBtn.addEventListener('click', () => {
+            fetchData(queries.fetchAllProducts);
+        });
+
+        // --- End JavaScript Code ---
+    </script>
+</body>
+</html>

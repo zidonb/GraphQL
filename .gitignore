@@ -1,0 +1,57 @@
+# Gitignore for the main GraphQL PoC project
+# Covers Node.js backend, .NET Gateway, and Angular Client
+
+# Node.js Dependencies
+# Exclude the node_modules folder in any Node.js project (mock-backend, angular-client)
+node_modules/
+
+# Node.js Logs
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# .NET Dependencies and Build Artifacts
+# Exclude the bin and obj folders in the .NET project (dotnet-gateway)
+[Bb]in/
+[Oo]bj/
+
+# .NET specific files
+*.csproj.user
+*.vspscc
+*.vssscc
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.json.vspscc
+
+# Build and Release Folders
+[Dd]ebug/
+[Rr]elease/
+publish/
+out/
+
+# Angular Build Output
+# Exclude the dist folder in the Angular client project
+angular-client/dist/
+
+# Angular Cache and other generated files
+.angular/
+.cache/
+
+# Editor and IDE specific files
+.vscode/        # VS Code settings (optional, but often user-specific)
+.idea/          # IntelliJ/WebStorm settings
+*.sublime-project
+*.sublime-workspace
+
+# Operating System Files
+.DS_Store       # macOS
+Thumbs.db       # Windows
+
+# Environment variables file (if you add one later)
+.env
+
+# Hot Chocolate specific files (if any are generated outside bin/obj)
+# Add any specific Hot Chocolate or other library cache/config files here if they appear
+

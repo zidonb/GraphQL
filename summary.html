@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GraphQL PoC Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles provided */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb; /* gray-50 equivalent */
+        }
+        pre {
+            background-color: #1e293b; /* slate-800 equivalent */
+            color: #f8fafc; /* slate-50 equivalent */
+            padding: 1.25rem; /* p-5 */
+            border-radius: 0.5rem; /* rounded-md */
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 0.875rem; /* text-sm */
+            line-height: 1.5; /* leading-normal */
+            margin: 1rem 0; /* my-4 */
+        }
+        code {
+            font-family: 'JetBrains Mono', Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+        }
+        /* Style for the clickable section headers */
+        .clickable-header {
+            cursor: pointer;
+            position: relative;
+            color: #2563eb; /* blue-600 */
+            font-weight: 600; /* font-semibold */
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem; /* py-3 px-4 */
+            border-radius: 0.5rem; /* rounded-md */
+            transition: all 0.2s ease;
+            background-color: #eff6ff; /* blue-50 */
+            border-left: 4px solid #3b82f6; /* border-l-4 border-blue-500 */
+            margin: 1rem 0; /* my-4 - Uniform spacing */
+        }
+        .clickable-header::after {
+            content: '→';
+            margin-left: auto; /* ml-auto */
+            font-size: 1.25rem; /* text-xl */
+            transition: transform 0.2s ease;
+        }
+        .clickable-header:hover {
+            background-color: #dbeafe; /* blue-100 */
+            color: #1d4ed8; /* blue-700 */
+        }
+        .clickable-header:hover::after {
+            transform: translateX(5px); /* translate-x-1 */
+        }
+
+        /* Modal styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.75); /* bg-black/75 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000; /* z-50 equivalent or higher */
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal.show {
+            visibility: visible;
+            opacity: 1;
+        }
+        .modal-content {
+            background-color: #fff;
+            padding: 2rem; /* p-8 */
+            border-radius: 0.75rem; /* rounded-xl */
+            max-width: 800px; /* max-w-2xl or max-w-[800px] */
+            width: 90%; /* w-11/12 or w-[90%] */
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            transform: translateY(-30px); /* translate-y-[-30px] */
+            transition: transform 0.3s ease;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); /* shadow-2xl equivalent */
+        }
+        .modal.show .modal-content {
+            transform: translateY(0);
+        }
+        .close-button {
+            position: absolute;
+            top: 1rem; /* top-4 */
+            right: 1rem; /* right-4 */
+            width: 2rem; /* w-8 */
+            height: 2rem; /* h-8 */
+            border-radius: 9999px; /* rounded-full */
+            background-color: #f3f4f6; /* gray-100 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .close-button:hover {
+            background-color: #e5e7eb; /* gray-200 */
+        }
+         /* Close button X icon using pseudo-elements */
+        .close-button::before, .close-button::after {
+            content: '';
+            position: absolute;
+            width: 1rem; /* w-4 */
+            height: 2px;
+            background-color: #6b7280; /* gray-500 */
+            transform: rotate(45deg);
+        }
+        .close-button::after {
+            transform: rotate(-45deg);
+        }
+
+        /* Specific styling for the data flow steps within modal */
+        .flow-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem; /* gap-4 */
+            padding: 1.25rem; /* p-5 */
+            border-radius: 0.75rem; /* rounded-xl */
+            margin-bottom: 1.5rem; /* mb-6 */
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); /* shadow-md */
+        }
+        .flow-step:last-child {
+            margin-bottom: 0; /* Remove mb for the last step */
+        }
+        .flow-step:hover {
+            transform: translateY(-2px); /* -translate-y-0.5 */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-lg */
+        }
+        .step-number {
+            flex-shrink: 0;
+            width: 2.5rem; /* w-10 */
+            height: 2.5rem; /* h-10 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            border-radius: 9999px; /* rounded-full */
+            font-weight: 700; /* font-bold */
+            font-size: 1.125rem; /* text-lg */
+        }
+        .step-content h3 {
+            font-size: 1.25rem; /* text-xl */
+            font-weight: 600; /* font-semibold */
+            margin-bottom: 0.5rem; /* mb-2 */
+        }
+        .step-content p {
+            color: #4b5563; /* gray-700 */
+            line-height: 1.625; /* leading-relaxed */
+        }
+        .step-content ul {
+             margin-top: 0.5rem; /* mt-2 */
+        }
+         .step-content ul li {
+             list-style: disc; /* list-disc */
+             margin-left: 1.5rem; /* ml-6 */
+         }
+
+
+        /* Specific colors for step numbers and backgrounds */
+        .step-blue { background-color: #eff6ff; border-left: 4px solid #3b82f6; } /* blue-50, blue-500 */
+        .step-blue .step-number { background-color: #3b82f6; } /* blue-500 */
+        .step-blue .step-content h3 { color: #1e40af; } /* blue-800 */
+
+        .step-indigo { background-color: #eef2ff; border-left: 4px solid #6366f1; } /* indigo-50, indigo-500 */
+        .step-indigo .step-number { background-color: #6366f1; } /* indigo-500 */
+        .step-indigo .step-content h3 { color: #4338ca; } /* indigo-800 */
+
+        .step-purple { background-color: #f5f3ff; border-left: 4px solid #8b5cf6; } /* violet-50, violet-500 (approx purple) */
+        .step-purple .step-number { background-color: #8b5cf6; } /* violet-500 */
+        .step-purple .step-content h3 { color: #6d28d9; } /* violet-800 */
+
+        .step-pink { background-color: #fdf2f8; border-left: 4px solid #ec4899; } /* pink-50, pink-500 */
+        .step-pink .step-number { background-color: #ec4899; } /* pink-500 */
+        .step-pink .step-content h3 { color: #be185d; } /* pink-800 */
+
+        .step-red { background-color: #fef2f2; border-left: 4px solid #ef4444; } /* red-50, red-500 */
+        .step-red .step-number { background-color: #ef4444; } /* red-500 */
+        .step-red .step-content h3 { color: #b91c1c; } /* red-800 */
+
+        .step-orange { background-color: #fff7ed; border-left: 4px solid #f97316; } /* orange-50, orange-500 */
+        .step-orange .step-number { background-color: #f97316; } /* orange-500 */
+        .step-orange .step-content h3 { color: #c2410c; } /* orange-800 */
+
+        .step-yellow { background-color: #fefce8; border-left: 4px solid #eab308; } /* yellow-50, yellow-500 */
+        .step-yellow .step-number { background-color: #eab308; } /* yellow-500 */
+        .step-yellow .step-content h3 { color: #a16207; } /* yellow-800 */
+
+        .step-green { background-color: #f0fdf4; border-left: 4px solid #22c55e; } /* green-50, green-500 */
+        .step-green .step-number { background-color: #22c55e; } /* green-500 */
+        .step-green .step-content h3 { color: #15803d; } /* green-800 */
+
+        .step-teal { background-color: #f0fdfa; border-left: 4px solid #14b8a6; } /* teal-50, teal-500 */
+        .step-teal .step-number { background-color: #14b8a6; } /* teal-500 */
+        .step-teal .step-content h3 { color: #0f766e; } /* teal-800 */
+
+        .step-cyan { background-color: #ecfeff; border-left: 4px solid #06b6d4; } /* cyan-50, cyan-500 */
+        .step-cyan .step-number { background-color: #06b6d4; } /* cyan-500 */
+        .step-cyan .step-content h3 { color: #0e7490; } /* cyan-800 */
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="max-w-5xl mx-auto px-4 py-12">
+        <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-700 py-10 px-8">
+                <h1 class="text-4xl font-bold text-white text-center">
+                    GraphQL PoC Comprehensive Report
+                </h1>
+            </div>
+
+            <div class="p-8">
+                <section class="mb-12">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-2">
+                        PoC Summary: Architecture and Library Choices
+                    </h2>
+
+                    <div class="p-6 bg-blue-50 rounded-xl shadow-sm border border-blue-100 text-gray-700 space-y-4">
+                        <p class="text-lg">
+                            This section summarizes the Proof of Concept (PoC) for a GraphQL architecture, focusing on its design and the rationale behind using specific components and libraries, particularly relevant for an air-gapped, high-security environment.
+                        </p>
+
+                        <h3 class="text-2xl font-bold text-blue-800 mt-4">
+                            PoC Components Developed:
+                        </h3>
+                        <p class="text-lg">
+                            We have successfully built and demonstrated a three-tier architecture:
+                        </p>
+                         <ul class="list-disc list-inside space-y-2 ml-4 text-gray-700">
+                            <li>
+                                <strong>Tier 1 (Clients):</strong>
+                                <ul class="list-disc list-inside ml-4 space-y-1">
+                                    <li>
+                                        <span class="font-semibold">1a. Angular Client:</span> A modern web application using the Angular framework and the <span class="font-semibold">Apollo Client</span> library to send GraphQL queries to the gateway. This represents the planned architecture for the real application.
+                                    </li>
+                                    <li>
+                                        <span class="font-semibold">1b. Pure JavaScript Client (Fetch-based):</span> A simple HTML page using native browser <code class="bg-gray-100 text-gray-800 px-1 py-0.5 rounded">fetch</code> API calls to send GraphQL queries. This served as an initial, minimal demonstration of client-to-gateway communication.
+                                    </li>
+                                </ul>
+                            </li>
+                            <li>
+                                <strong>Tier 2 (Gateway):</strong>
+                                <ul class="list-disc list-inside ml-4 space-y-1">
+                                    <li>
+                                        <span class="font-semibold">.NET 8 GraphQL Gateway:</span> An ASP.NET Core application using the <span class="font-semibold">Hot Chocolate</span> library. This acts as the central GraphQL server, receiving client queries and resolving it by communicating with the backend.
+                                    </li>
+                                </ul>
+                            </li>
+                             <li>
+                                <strong>Tier 3 (Backend):</strong>
+                                <ul class="list-disc list-inside ml-4 space-y-1">
+                                    <li>
+                                        <span class="font-semibold">Node.js Mock REST Backend:</span> A simple application simulating an existing "untouchable" backend system, exposing data via standard REST endpoints.
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <h3 id="architecture-choice-header" class="clickable-header mt-8">
+                        Architecture Choice: Why the Gateway Layer?
+                    </h3>
+
+                    <h3 id="client-library-header" class="clickable-header">
+                        Why Use a Client Library (like Apollo) vs. Pure JS Fetch?
+                    </h3>
+
+                    <h3 id="library-choices-header" class="clickable-header">
+                        Choice of Apollo Client and Hot Chocolate
+                    </h3>
+
+                     <h3 id="data-flow-header" class="clickable-header">
+                        GraphQL PoC Data Flow Explained
+                    </h3>
+
+                     <h3 id="data-format-header" class="clickable-header">
+                        GraphQL PoC Data Flow: Data Format Examples
+                    </h3>
+                     </section> <footer class="mt-16 pt-8 border-t border-gray-200 text-center text-gray-500 text-sm">
+                    <p>&copy; 2025 GraphQL PoC Report</p>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    <div id="architecture-choice-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button"></span>
+            <h3 class="text-2xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-2">
+                Architecture Choice: Why the Gateway Layer?
+            </h3>
+            <div class="prose prose-blue max-w-none">
+                <p class="mb-4 text-gray-700 text-lg">
+                    The chosen architecture (Client → Gateway → Backend) is a standard pattern for modern APIs, especially relevant in complex or secure environments, for several key reasons:
+                </p>
+                 <ul class="space-y-4 my-6 list-none pl-0">
+                    <li class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500 text-gray-700">
+                        <h4 class="font-semibold text-blue-800 text-lg">Decoupling</h4>
+                        <p>The client is decoupled from the specific backend data sources (like our Node.js REST service). The client only needs to know about the Gateway's GraphQL schema.</p>
+                    </li>
+                    <li class="bg-indigo-50 p-4 rounded-lg border-l-4 border-indigo-500 text-gray-700">
+                        <h4 class="font-semibold text-indigo-800 text-lg">Backend Abstraction & Orchestration</h4>
+                        <p>The Gateway acts as an abstraction layer. It knows <em>how</em> to get data from potentially multiple underlying backend systems (REST APIs, databases, other services), combining and transforming it as needed to fulfill a single GraphQL query from the client. The client doesn't need to know the details of these backend interactions.</p>
+                    </li>
+                    <li class="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-500 text-gray-700">
+                        <h4 class="font-semibold text-purple-800 text-lg">Security & Control</h4>
+                        <p>The Gateway provides a single entry point for data access. This allows for centralized authentication, authorization, logging, and rate limiting before requests reach the backend systems. In an air-gapped environment, this control point is critical.</p>
+                    </li>
+                    <li class="bg-pink-50 p-4 rounded-lg border-l-4 border-pink-500 text-gray-700">
+                        <h4 class="font-semibold text-pink-800 text-lg">Reduced Client Complexity</h4>
+                        <p>Without a gateway, the client would need to make multiple calls to different backend endpoints and combine the data itself, increasing client complexity and potential performance issues (e.g., "over-fetching" data the client doesn't need). GraphQL allows the client to request <em>exactly</em> the data it needs in a single request.</p>
+                    </li>
+                    <li class="bg-red-50 p-4 rounded-lg border-l-4 border-red-500 text-gray-700">
+                        <h4 class="font-semibold text-red-800 text-lg">Backend Protection</h4>
+                        <p>The Gateway can protect legacy or sensitive backend systems by providing a controlled interface and preventing direct client access.</p>
+                    </li>
+                </ul>
+                <p class="mb-6 text-gray-700 text-lg font-medium">
+                    In short, the Gateway centralizes complex data fetching logic, decouples the client from backend specifics, and provides a crucial control point for security and performance.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div id="client-library-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button"></span>
+            <h3 class="text-2xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-2">
+                Why Use a Client Library (like Apollo) vs. Pure JS Fetch?
+            </h3>
+            <div class="prose prose-blue max-w-none">
+                <p class="mb-6 text-gray-700 text-lg">
+                    While native <code class="bg-gray-100 text-gray-800 px-1 py-0.5 rounded">fetch</code> can send GraphQL queries over HTTP, using a dedicated GraphQL client library like Apollo Client offers significant advantages for building robust applications:
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500 text-gray-700">
+                        <h4 class="font-semibold text-blue-800 text-lg">Caching</h4>
+                        <p>Libraries like Apollo have sophisticated in-memory caches that store fetched data. Subsequent queries for the same data can be served instantly from the cache, dramatically improving application performance and responsiveness.</p>
+                    </div>
+                    <div class="bg-indigo-50 p-4 rounded-lg border-l-4 border-indigo-500 text-gray-700">
+                        <h4 class="font-semibold text-indigo-800 text-lg">State Management Integration</h4>
+                        <p>GraphQL client libraries often integrate well with frontend state management patterns, making it easier to manage application data fetched from the API.</p>
+                    </div>
+                    <div class="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-500 text-gray-700">
+                        <h4 class="font-semibold text-purple-800 text-lg">Declarative Data Fetching</h4>
+                        <p>They provide declarative ways to associate components with data requirements (e.g., using hooks or services in Angular), simplifying the data fetching logic within your UI code.</p>
+                    </div>
+                    <div class="bg-pink-50 p-4 rounded-lg border-l-4 border-pink-500 text-gray-700">
+                        <h4 class="font-semibold text-pink-800 text-lg">Optimistic UI</h4>
+                        <p>They support updating the UI immediately after a mutation (data modification) before the server response is received, providing a smoother user experience.</p>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-lg border-l-4 border-red-500 text-gray-700">
+                        <h4 class="font-semibold text-red-800 text-lg">Error Handling</h4>
+                        <p>Libraries provide structured ways to handle both network errors and GraphQL errors returned in the response payload.</p>
+                    </div>
+                    <div class="bg-orange-50 p-4 rounded-lg border-l-4 border-orange-500 text-gray-700">
+                        <h4 class="font-semibold text-orange-800 text-lg">Tooling & Ecosystem</h4>
+                        <p>Using a standard library provides access to a wider ecosystem of tools, developer extensions, and community support.</p>
+                    </div>
+                </div>
+                <p class="mb-6 text-gray-700 text-lg font-medium">
+                    For a real Angular application, the benefits in terms of performance, developer experience, and maintainability make using a dedicated library like Apollo Client or urql highly preferable to managing GraphQL requests and responses manually with <code class="bg-gray-100 text-gray-800 px-1 py-0.5 rounded">fetch</code>.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div id="library-choices-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button"></span>
+            <h3 class="text-2xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-2">
+                Choice of Apollo Client and Hot Chocolate
+            </h3>
+            <div class="prose prose-blue max-w-none">
+                 <div class="flex flex-col md:flex-row gap-6 mb-6">
+                    <div class="flex-1 bg-blue-50 p-6 rounded-xl border border-blue-100 shadow-sm text-gray-700">
+                        <h4 class="font-bold text-xl text-blue-800 mb-4">Apollo Client</h4>
+                        <p>
+                            A very popular and mature GraphQL client library with excellent documentation and a large community. It has strong support for caching, state management integration, and various frameworks (including a dedicated <code class="bg-gray-100 text-gray-800 px-1 py-0.5 rounded">@apollo/angular</code> package). Its widespread use makes it a solid and well-supported choice.
+                        </p>
+                    </div>
+                    <div class="flex-1 bg-indigo-50 p-6 rounded-xl border border-indigo-100 shadow-sm text-gray-700">
+                        <h4 class="font-bold text-xl text-indigo-800 mb-4">Hot Chocolate</h4>
+                        <p>
+                            A leading GraphQL server library for .NET. It is modern, actively developed, and provides a powerful and flexible way to build GraphQL APIs in .NET, including features like schema-first or code-first development, subscriptions, and integration with various data sources (like our <code class="bg-gray-100 text-gray-800 px-1 py-0.5 rounded">HttpClient</code> calls to the REST backend). Its strong .NET integration makes it a natural fit for the Gateway layer in your environment.
+                        </p>
+                    </div>
+                </div>
+                <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm text-gray-700">
+                    <p class="text-lg">
+                        While other libraries exist (like <code class="bg-gray-100 text-gray-800 px-1 py-0.5 rounded">urql</code> for clients or <code class="bg-gray-100 text-gray-800 px-1 py-0.5 rounded">GraphQL.NET</code> for servers), Apollo Client and Hot Chocolate are well-regarded, widely used options that provide the necessary features and stability for this PoC and likely for your real project.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="data-flow-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button"></span>
+            <h3 class="text-2xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-2">
+                GraphQL PoC Data Flow Explained
+            </h3>
+            <p class="mb-8 text-gray-700 text-lg text-center">
+                This section illustrates the journey of a data request in our Proof of Concept (PoC) architecture, from the Angular client clicking a button to receiving data from the mock backend.
+            </p>
+
+            <div class="space-y-6">
+                <div class="flow-step step-blue">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Client Action (Angular Component)</h3>
+                        <p>
+                            A user clicks a button (e.g., "Fetch All Users") in the Angular client's <code>DataFetcherComponent</code>. This triggers a method within the component (e.g., <code>fetchUsers()</code>).
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flow-step step-indigo">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>GraphQL Client (Apollo)</h3>
+                        <p>
+                            The component calls a method on the injected <strong>Apollo Client</strong> service (e.g., <code>apollo.watchQuery(...)</code>). The component provides the GraphQL query string (e.g., <code>GET_USERS_QUERY</code>, which contains the GraphQL language syntax like <code>query { users { id name } }</code>).
+                        </p>
+                        <p>
+                            <strong>Apollo Client is responsible for understanding and formatting the request in the standard GraphQL over HTTP format.</strong> It prepares the request payload (usually JSON) containing the <code>query</code> string and any variables.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flow-step step-purple">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>HTTP Request (Browser/Apollo Link)</h3>
+                        <p>
+                            Apollo Client's <strong>HttpLink</strong> (configured in <code>app.config.ts</code>) takes the prepared GraphQL request payload and sends it as a standard HTTP POST request from the browser to the configured GraphQL endpoint URL on the Gateway (e.g., <code>http://localhost:5254/graphql</code>).
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flow-step step-pink">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3>GraphQL Gateway (.NET / Hot Chocolate)</h3>
+                        <p>
+                            The .NET GraphQL Gateway application receives the incoming HTTP POST request at its <code>/graphql</code> endpoint. The <strong>Hot Chocolate</strong> library takes over here.
+                        </p>
+                        <p>
+                            <strong>Hot Chocolate (on the Gateway) is responsible for:</strong>
+                        </p>
+                        <ul class="list-disc list-inside ml-4">
+                            <li>Parsing the incoming GraphQL request payload.</li>
+                            <li>Understanding the requested GraphQL query (e.g., "the client wants the 'users' field").</li>
+                            <li>Executing the corresponding "resolver" logic defined in the Gateway's schema (e.g., the <code>GetUsersAsync</code> method in the <code>Query</code> class).</li>
+                            <li><strong>Converting the GraphQL query into actions the backend understands.</strong> In our PoC, this means the resolver decides to make an HTTP call to the Node.js backend's REST endpoint.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="flow-step step-red">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <h3>Backend Communication (Gateway's HttpClient)</h3>
+                        <p>
+                            Inside the Gateway's resolver (e.g., <code>GetUsersAsync</code>), standard .NET code uses <code>HttpClient</code> to make a traditional REST API call to the Node.js Mock REST Backend (e.g., <code>http://localhost:3000/users</code>).
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flow-step step-orange">
+                    <div class="step-number">6</div>
+                    <div class="step-content">
+                        <h3>Backend Response (Node.js Mock REST Backend)</h3>
+                        <p>
+                            The Node.js Mock REST Backend receives the REST request and returns the requested data as a standard HTTP response, typically in JSON format (e.g., <code>[ { "id": 1, "name": "Alice" }, { "id": 2, "name": "Bob" } ]</code>).
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flow-step step-yellow">
+                    <div class="step-number">7</div>
+                    <div class="step-content">
+                        <h3>Gateway Processes (Hot Chocolate)</h3>
+                        <p>
+                            The Gateway's resolver receives the REST response from the Node.js backend. Hot Chocolate takes this data and formats it according to the <em>original GraphQL query</em> requested by the client. It constructs the final GraphQL response payload (JSON), including the <code>data</code> field and potentially an <code>errors</code> field.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flow-step step-green">
+                    <div class="step-number">8</div>
+                    <div class="step-content">
+                        <h3>GraphQL Response (Gateway to Client)</h3>
+                        <p>
+                            The .NET Gateway sends the final GraphQL response payload back to the client as a standard HTTP response.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flow-step step-teal">
+                    <div class="step-number">9</div>
+                    <div class="step-content">
+                        <h3>Client Receives Response (Apollo Client)</h3>
+                        <p>
+                            Apollo Client in the browser receives the HTTP response. It parses the GraphQL response payload, updates its cache (if caching is enabled), and makes the data (or errors) available to the component that initiated the query.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flow-step step-cyan">
+                    <div class="step-number">10</div>
+                    <div class="step-content">
+                        <h3>UI Update (Angular Component)</h3>
+                        <p>
+                            The Angular component's subscription to Apollo Client's query result receives the new data. The component updates its properties (<code>loading</code>, <code>error</code>, <code>data</code>). Angular's change detection sees these updates and automatically re-renders the component's HTML template, displaying the fetched data in the results area.
+                        </p>
+                    </div>
+                </div>
+
+            </div> <div class="mt-8 pt-6 border-t border-gray-200 text-sm text-gray-600 text-center">
+                This diagram illustrates the flow for a query operation. Mutations (data modifications) would follow a similar path but involve sending data from the client to the gateway.
+            </div>
+        </div>
+    </div>
+
+    <div id="data-format-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button"></span>
+            <h3 class="text-2xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-2">
+                GraphQL PoC Data Flow: Data Format Examples
+            </h3>
+            <p class="mb-8 text-gray-700 text-lg">
+                This section provides examples of how the data is formatted at different points in the flow when fetching "All Users".
+            </p>
+
+            <div class="space-y-6">
+                 <div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">1. Client Button "Sends" (Conceptually):</h3>
+                    <p class="mb-2 text-gray-700">
+                        The raw GraphQL query string provided to Apollo Client by the Angular component:
+                    </p>
+                    <pre><code class="language-graphql">query {
+    users {
+      id
+      name
+    }
+ }</code></pre>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">2. Apollo Client Formats into HTTP Request Payload:</h3>
+                    <p class="mb-2 text-gray-700">
+                        The JSON payload sent in the body of the HTTP POST request from the browser to the Gateway:
+                    </p>
+                    <pre><code class="language-json">{
+    "query": "query { users { id name } }",
+    "variables": null,
+    "operationName": null
+ }</code></pre>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">3. GraphQL Gateway (Hot Chocolate) Receives:</h3>
+                    <p class="mb-2 text-gray-700">
+                        The JSON payload received and parsed by Hot Chocolate on the Gateway:
+                    </p>
+                    <pre><code class="language-json">{
+    "query": "query { users { id name } }",
+    "variables": null,
+    "operationName": null
+ }</code></pre>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">4. Gateway Resolver Calls Backend (HTTP Request):</h3>
+                    <p class="mb-2 text-gray-700">
+                        The standard REST API HTTP GET request made by the Gateway's resolver to the Node.js backend:
+                    </p>
+                    <pre><code class="language-http">GET http://localhost:3000/users</code></pre>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">5. Backend Responds (REST Response Payload):</h3>
+                    <p class="mb-2 text-gray-700">
+                        The JSON array returned in the body of the HTTP response from the Node.js backend:
+                    </p>
+                    <pre><code class="language-json">[
+    {
+      "id": 1,
+      "name": "Alice"
+    },
+    {
+      "id": 2,
+      "name": "Bob"
+    }
+ ]</code></pre>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">6. Gateway Processes & Formats GraphQL Response:</h3>
+                    <p class="mb-2 text-gray-700">
+                        The final GraphQL response payload (JSON) constructed by Hot Chocolate and sent back to the client:
+                    </p>
+                    <pre><code class="language-json">{
+    "data": {
+      "users": [
+        {
+          "id": 1,
+          "name": "Alice"
+        },
+        {
+          "id": 2,
+          "name": "Bob"
+        }
+      ]
+    },
+    "errors": null
+ }</code></pre>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">7. Gateway Responds to Client (HTTP Response):</h3>
+                    <p class="mb-2 text-gray-700">
+                        The standard HTTP response including headers and the JSON payload. This is received by Apollo Client.
+                    </p>
+                    </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // This script is crucial for the modal functionality.
+        // It listens for clicks on elements with the 'clickable-header' class
+        // and the 'close-button' class, and handles showing/hiding the corresponding modals.
+        document.addEventListener('DOMContentLoaded', () => {
+            const modals = {
+                'architecture-choice-header': 'architecture-choice-modal',
+                'client-library-header': 'client-library-modal',
+                'library-choices-header': 'library-choices-modal',
+                'data-flow-header': 'data-flow-modal',
+                'data-format-header': 'data-format-modal'
+            };
+
+            function showModal(modalId) {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    // Add 'show' class to the modal container
+                    modal.classList.add('show');
+                    // Add 'translate-y-0' to the modal content for the slide-in effect
+                     const modalContent = modal.querySelector('.modal-content');
+                     if (modalContent) {
+                         modalContent.classList.add('translate-y-0');
+                     }
+                }
+            }
+
+            function hideModal(modal) {
+                 // Remove 'translate-y-0' to reset the transform for slide-out
+                 const modalContent = modal.querySelector('.modal-content');
+                 if (modalContent) {
+                     modalContent.classList.remove('translate-y-0');
+                 }
+                 // Remove 'show' class after a short delay to allow transition
+                 // This timeout should match the transition duration defined in CSS/Tailwind (e.g., 300ms)
+                 setTimeout(() => {
+                     modal.classList.remove('show');
+                 }, 300); // Match the transition duration
+            }
+
+            // Add click listeners to clickable headers
+            Object.keys(modals).forEach(headerId => {
+                const header = document.getElementById(headerId);
+                if (header) {
+                    header.addEventListener('click', () => {
+                        showModal(modals[headerId]);
+                    });
+                }
+            });
+
+            // Add click listeners to close buttons
+            document.querySelectorAll('.modal .close-button').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const modal = event.target.closest('.modal');
+                    if (modal) {
+                        hideModal(modal);
+                    }
+                });
+            });
+
+            // Close modal when clicking outside modal-content
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', (event) => {
+                    // Check if the click target is the modal background itself, not its content
+                    if (event.target === modal) {
+                        hideModal(modal);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
