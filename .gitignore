@@ -55,3 +55,6 @@ Thumbs.db       # Windows
 # Hot Chocolate specific files (if any are generated outside bin/obj)
 # Add any specific Hot Chocolate or other library cache/config files here if they appear
 
+
+airgap_packages/
+
