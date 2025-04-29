@@ -1,0 +1,25 @@
+<div class="p-4 border rounded-md shadow-sm bg-gray-50">
+    <h3 class="text-lg font-semibold mb-3">GraphQL Data (from Gateway via Apollo)</h3>
+  
+    <div class="flex flex-wrap gap-4 mb-6">
+      <button (click)="fetchUsers()" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring focus:border-blue-300">
+        Fetch All Users
+      </button>
+      <button (click)="fetchProducts()" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring focus:border-green-300">
+        Fetch All Products
+      </button>
+    </div>
+  
+    <h4 class="xl font-semibold mb-3 text-gray-800">Results:</h4>
+    <div id="results" class="bg-gray-800 text-gray-100 p-4 rounded-md overflow-x-auto">
+  
+      <pre><code class="language-json" *ngIf="!loading && !error && !data">Click a button to see data...</code></pre>
+  
+      <pre><code class="language-json" *ngIf="loading">Loading...</code></pre>
+  
+      <pre><code class="language-json" *ngIf="error">{{ error | json }}</code></pre>
+  
+      <pre><code class="language-json" *ngIf="!loading && !error && data">{{ data | json }}</code></pre>
+    </div>
+  </div>
+  
